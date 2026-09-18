@@ -120,39 +120,33 @@ let lastNetworkUpdate = 0;
 let chatOpen = false;
 let dead = false;
 function spinCameraDeath() {
-  const startYaw = player.yaw;
-  const startPitch = player.pitch;
-  const startedAt = performance.now();
-  const duration = 1000;
-  function animateCamera(now) {
-    const progress = Math.min((now - startedAt) / duration, 1);
-    camera.rotation.set(startPitch, startYaw + progress * Math.PI * 2, 0);
-    if (progress < 1 && dead) requestAnimationFrame(animateCamera);
+  function animateCamera() {
+    if (!dead) return;
+    camera.rotation.y += Math.PI / 18;
+    requestAnimationFrame(animateCamera);
   }
-  requestAnimationFrame(animateCamera);
+  animateCamera();
 }
-function spinDeath(sprite, respawnX, respawnZ, showAfter = true) {
-  if (!sprite) return;
-  const startRotation = sprite.rotation.y;
-  const startedAt = performance.now();
-  const duration = 850;
-  function animateDeath(now) {
-    const progress = Math.min((now - startedAt) / duration, 1);
-    sprite.rotation.y = startRotation + progress * Math.PI * 2;
-    sprite.scale.set(1 + progress * .2, 1 - progress * .35, 1);
-    if (progress < 1) requestAnimationFrame(animateDeath);
-    else {
-      sprite.position.set(respawnX, -.1, respawnZ);
-      if (sprite === worldAvatar) {
-        player.position.set(respawnX, 2.2, respawnZ);
-        player.velocity.set(0, 0, 0);
-      }
-      sprite.rotation.y = 0;
-      sprite.scale.set(1, 1, 1);
-      sprite.visible = showAfter;
+function spinDeath(remote) {
+  if (!remote || remote.spinning) return;
+  remote.spinning = true;
+  function animateDeath() {
+    if (!remote.dead) {
+      remote.spinning = false;
+      return;
     }
+    remote.object.rotation.y += Math.PI / 18;
+    requestAnimationFrame(animateDeath);
   }
-  requestAnimationFrame(animateDeath);
+  animateDeath();
+}
+function respawnRemote(remote, x, y, z) {
+  if (!remote) return;
+  remote.dead = false;
+  remote.object.position.set(x, y - 2.2, z);
+  remote.object.rotation.y = 0;
+  remote.object.visible = true;
+  remote.sprite.visible = true;
 }
 function addRemotePlayer(playerId) {
   if (remotePlayers.has(playerId)) return;
@@ -174,7 +168,7 @@ function addRemotePlayer(playerId) {
   remoteRifle.rotation.set(-.18, 0, -.12);
   remote.add(sprite, remoteGun, remoteRifle);
   scene.add(remote);
-  remotePlayers.set(playerId, { object: remote, sprite, gun: remoteGun, rifle: remoteRifle, nameTag, yaw: 0, pitch: 0 });
+  remotePlayers.set(playerId, { object: remote, sprite, gun: remoteGun, rifle: remoteRifle, nameTag, yaw: 0, pitch: 0, dead: false, spinning: false });
 }
 function renderRoomList(rooms = []) {
   const roomList = document.getElementById('room-list');
@@ -274,16 +268,16 @@ function connectMultiplayer() {
         spinCameraDeath();
       } else {
         const remote = remotePlayers.get(message.victim);
-        spinDeath(remote?.object, message.rx, message.rz, true);
+        if (remote) {
+          remote.dead = true;
+          remote.object.visible = true;
+          spinDeath(remote);
+        }
       }
     }
     if (message.type === 'respawn') {
       const remote = remotePlayers.get(message.id);
-      if (remote) {
-        remote.object.position.set(message.x, message.y - 2.2, message.z);
-        remote.object.visible = true;
-        remote.sprite.visible = true;
-      }
+      if (remote) respawnRemote(remote, message.x, message.y, message.z);
       if (!message.id || message.id === localPlayerId) {
         dead = false;
         player.position.set(message.x, message.y, message.z);

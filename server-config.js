@@ -1,1 +1,1 @@
-window.PLERY_MULTIPLAYER_SERVER = 'wss://plerygun3d-multiplayer.onrender.com';
+window.PLERY_MULTIPLAYER_SERVER = 'wss://plery-online-server.onrender.com';

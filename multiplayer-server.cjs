@@ -146,12 +146,26 @@ function handleShot(player, message) {
   broadcastRoom(room, { type: 'kill-feed', killer: player.name, victim: victim.name });
   setTimeout(() => {
     if (!players.has(victim.id) || victim.roomId !== room.id || !victim.dead) return;
-    const angle = Math.random() * Math.PI * 2;
-    const distance = 28 + Math.random() * 20;
+    const spawn = findSpawn(room, victim.id);
     victim.dead = false;
-    victim.state = { ...victim.state, x: Math.cos(angle) * distance, y: 2.2, z: Math.sin(angle) * distance };
+    victim.state = { ...victim.state, x: spawn.x, y: 2.2, z: spawn.z };
     broadcastRoom(room, { type: 'respawn', id: victim.id, ...victim.state });
   }, 1800);
+}
+
+function findSpawn(room, excludedId) {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const x = Math.round((Math.random() * 88 - 44) * 10) / 10;
+    const z = Math.round((Math.random() * 88 - 44) * 10) / 10;
+    const clear = [...room.players].every(playerId => {
+      if (playerId === excludedId) return true;
+      const other = players.get(playerId);
+      if (!other || other.dead) return true;
+      return Math.hypot(other.state.x - x, other.state.z - z) >= 8;
+    });
+    if (clear) return { x, z };
+  }
+  return { x: 0, z: -42 };
 }
 
 function leaveRoom(player) {
