@@ -15,6 +15,43 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 document.getElementById('game-shell').prepend(renderer.domElement);
 
+function createMapPreview(canvas, mapName) {
+  if (!canvas) return;
+  const previewScene = new THREE.Scene();
+  previewScene.background = new THREE.Color(0x6d9d83);
+  const previewCamera = new THREE.PerspectiveCamera(38, 1, .1, 100);
+  previewCamera.position.set(14, 12, 18);
+  previewCamera.lookAt(0, 2, 0);
+  const previewRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  previewRenderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+  previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+  previewRenderer.shadowMap.enabled = true;
+  previewRenderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+  previewScene.add(new THREE.HemisphereLight(0xc7efc4, 0x365344, 2.2));
+  const previewSun = new THREE.DirectionalLight(0xffe2b0, 2.8);
+  previewSun.position.set(-12, 20, 10);
+  previewSun.castShadow = true;
+  previewScene.add(previewSun);
+  const addPreviewBlock = (color, x, y, z, scale) => {
+    const material = color?.isMaterial ? color : new THREE.MeshStandardMaterial({ color, roughness: .9 });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(...scale), material);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    previewScene.add(mesh);
+  };
+  addPreviewBlock(new THREE.MeshStandardMaterial({ map: grassTexture, roughness: .9 }), 0, -1, 0, [28, 2, 28]);
+  [[-7, -5, 1.2], [5, -7, .95], [8, 5, 1.1], [-6, 7, .9]].forEach(([x, z, size]) => {
+    addPreviewBlock(logsMaterial, x, 2.2 * size, z, [1.1 * size, 4.4 * size, 1.1 * size]);
+    addPreviewBlock(leavesMaterial, x, 5 * size, z, [4.8 * size, 2.2 * size, 4.8 * size]);
+    addPreviewBlock(leavesMaterial, x, 6.7 * size, z, [3.8 * size, 1.5 * size, 3.8 * size]);
+  });
+  previewRenderer.render(previewScene, previewCamera);
+}
+function renderMapPreviews() {
+  createMapPreview(document.getElementById('grass-map-preview'), 'grass');
+}
+
 const avatarCanvas = document.getElementById('avatar-2d');
 const avatarContext = avatarCanvas.getContext('2d');
 avatarContext.imageSmoothingEnabled = false;
@@ -30,9 +67,9 @@ function drawAvatar() {
   pixel('#5b5c63', 17, 117, 14, 11); pixel('#5b5c63', 33, 117, 14, 11);
 }
 drawAvatar();
-function createCharacter(color = 0xffffff) {
+function createCharacter() {
   const character = new THREE.Group();
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color, roughness: .7 });
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .7 });
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(.58, 1.25, 10, 20), bodyMaterial);
   body.position.y = 1.25;
   character.add(body);
@@ -72,224 +109,25 @@ worldAvatar.add(worldNameTag);
 worldAvatar.position.set(0, 0, 12);
 worldAvatar.visible = false;
 scene.add(worldAvatar);
-let currentMap = 'grass';
-let dead = false;
 const remotePlayers = new Map();
 let multiplayerSocket = null;
 let localPlayerId = null;
+let currentMap = 'grass';
+let maxPlayers = 5;
+const mapLimits = { grass: 5 };
+let roomJoined = false;
 let lastNetworkUpdate = 0;
 let chatOpen = false;
-let onlineRoomJoined = false;
-let selectedRoomId = '';
-function addChatMessage(name, text) {
-  const messages = document.getElementById('chat-messages');
-  const line = document.createElement('div');
-  line.className = 'chat-line';
-  const author = document.createElement('b');
-  author.textContent = `${name}: `;
-  line.append(author, document.createTextNode(text));
-  messages.append(line);
-  while (messages.children.length > 7) messages.firstElementChild.remove();
-  setTimeout(() => { if (!chatOpen && line.parentElement) line.remove(); }, 9000);
-}
-function addKillFeed(killer, victim) {
-  const feed = document.getElementById('kill-feed');
-  const line = document.createElement('div');
-  line.className = 'kill-feed-line';
-  line.textContent = `${killer} eliminated ${victim}`;
-  feed.append(line);
-  while (feed.children.length > 4) feed.firstElementChild.remove();
-  setTimeout(() => { if (line.parentElement) line.remove(); }, 5000);
-}
-function renderRooms(rooms) {
-  const roomList = document.getElementById('room-list');
-  roomList.replaceChildren();
-  if (!rooms.length) {
-    roomList.textContent = 'No rooms yet. Create the first one.';
-    return;
-  }
-  rooms.forEach(room => {
-    const entry = document.createElement('button');
-    entry.type = 'button';
-    entry.className = `room-entry${room.id === selectedRoomId ? ' selected' : ''}`;
-    entry.innerHTML = `<span>${room.name}${room.private ? ' [LOCKED]' : ''}</span><small>${room.players} PLAYERS</small>`;
-    entry.addEventListener('click', () => {
-      selectedRoomId = room.id;
-      document.getElementById('lobby-room-name').value = room.name;
-      renderRooms(rooms);
-      sendRoomRequest('room-join');
-    });
-    roomList.append(entry);
-  });
-}
-function sendRoomRequest(type) {
-  if (!multiplayerSocket || multiplayerSocket.readyState !== WebSocket.OPEN) {
-    document.getElementById('lobby-status').textContent = 'CONNECTING TO ONLINE SERVER...';
-    connectMultiplayer();
-    return;
-  }
-  const playerName = document.getElementById('lobby-player-name').value.trim().slice(0, 16) || 'Player';
-  const roomName = document.getElementById('lobby-room-name').value.trim().slice(0, 24);
-  if (!roomName && type === 'room-create') {
-    document.getElementById('lobby-status').textContent = 'ENTER A ROOM NAME';
-    return;
-  }
-  multiplayerSocket.send(JSON.stringify({ type, roomId: selectedRoomId, roomName, name: playerName }));
-  document.getElementById('lobby-status').textContent = 'CONNECTING TO ROOM...';
-}
-function addRemotePlayer(playerId, name = 'PLAYER', state = {}) {
-  if (remotePlayers.has(playerId)) return;
-  const remote = createCharacter(0x9bb7e8);
-  const nameTag = createNameTag(name);
-  const remoteGun = gun.clone();
-  const remoteRifle = rifle.clone();
-  remoteGun.scale.setScalar(.22);
-  remoteGun.position.set(.62, 1, -.28);
-  remoteGun.rotation.set(-.18, 0, -.12);
-  remoteRifle.scale.setScalar(.22);
-  remoteRifle.position.set(.62, 1, -.28);
-  remoteRifle.rotation.set(-.18, 0, -.12);
-  remoteGun.visible = state.weapon === 'rpg';
-  remoteRifle.visible = state.weapon !== 'rpg';
-  remote.add(nameTag);
-  remote.add(remoteGun, remoteRifle);
-  scene.add(remote);
-  remotePlayers.set(playerId, { object: remote, nameTag, gun: remoteGun, rifle: remoteRifle });
-  applyRemoteState(remotePlayers.get(playerId), state);
-}
-function applyRemoteState(remote, state) {
-  if (!remote || !state) return;
-  remote.object.position.set(state.x || 0, (state.y || 2.2) - 2.2, state.z || 12);
-  remote.object.rotation.y = state.yaw || 0;
-  remote.gun.visible = state.weapon === 'rpg';
-  remote.rifle.visible = state.weapon !== 'rpg';
-  remote.gun.rotation.x = state.pitch || -.18;
-  remote.rifle.rotation.x = state.pitch || -.18;
-  updateNameTag(remote.nameTag, state.name);
-}
-function connectMultiplayer() {
-  if (multiplayerSocket && multiplayerSocket.readyState <= WebSocket.OPEN) return;
-  const configuredServer = window.PLERYGUN3D_MULTIPLAYER_SERVER || `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:8765`;
-  if (!configuredServer || configuredServer.includes('YOUR_')) return;
-  multiplayerSocket = new WebSocket(`${configuredServer}/?map=grass`);
-  multiplayerSocket.addEventListener('message', event => {
-    const message = JSON.parse(event.data);
-    if (message.type === 'rooms') renderRooms(message.rooms);
-    if (message.type === 'room-error') document.getElementById('lobby-status').textContent = message.message;
-    if (message.type === 'room-joined') {
-      onlineRoomJoined = true;
-      localPlayerId = message.id;
-      message.peers.forEach(peer => addRemotePlayer(peer.id, peer.name, peer));
-      document.getElementById('online-lobby').hidden = true;
-      startGame('grass', true);
-    }
-    if (message.type === 'welcome') {
-      localPlayerId = message.id;
-      message.peers.forEach(peer => addRemotePlayer(peer.id, peer.name, peer));
-    }
-    if (message.type === 'join') addRemotePlayer(message.id, message.name);
-    if (message.type === 'leave') {
-      const remote = remotePlayers.get(message.id);
-      if (remote) scene.remove(remote.object);
-      remotePlayers.delete(message.id);
-    }
-    if (message.type === 'state' && message.id !== localPlayerId) {
-      addRemotePlayer(message.id, message.name);
-      const remote = remotePlayers.get(message.id);
-      applyRemoteState(remote, message);
-    }
-    if (message.type === 'shoot') showRemoteShot(message);
-    if (message.type === 'death') handleOnlineDeath(message);
-    if (message.type === 'respawn') handleOnlineRespawn(message);
-    if (message.type === 'kill-feed') addKillFeed(message.killer, message.victim);
-    if (message.type === 'chat') addChatMessage(message.name, message.text);
-  });
-  multiplayerSocket.addEventListener('error', () => {
-    document.getElementById('server-status').textContent = 'ONLINE SERVER UNAVAILABLE';
-  });
-}
-function stopMultiplayer() {
-  if (multiplayerSocket) multiplayerSocket.close();
-  multiplayerSocket = null;
-  localPlayerId = null;
-  onlineRoomJoined = false;
-  remotePlayers.forEach(remote => scene.remove(remote.object));
-  remotePlayers.clear();
-}
-function sendNetworkState(time) {
-  if (!multiplayerSocket || multiplayerSocket.readyState !== WebSocket.OPEN || time - lastNetworkUpdate < 50) return;
-  lastNetworkUpdate = time;
-  multiplayerSocket.send(JSON.stringify({ type: 'state', x: player.position.x, y: player.position.y, z: player.position.z, yaw: player.yaw, pitch: player.pitch, weapon: activeWeapon, name: profileStats.name }));
-}
-function sendOnlineShot(origin, direction) {
-  if (multiplayerSocket && multiplayerSocket.readyState === WebSocket.OPEN) {
-    multiplayerSocket.send(JSON.stringify({ type: 'shoot', x: origin.x, y: origin.y, z: origin.z, dx: direction.x, dy: direction.y, dz: direction.z, weapon: activeWeapon }));
-  }
-}
-function showRemoteShot(message) {
-  const origin = new THREE.Vector3(message.x, message.y, message.z);
-  const direction = new THREE.Vector3(message.dx, message.dy, message.dz).normalize();
-  const end = origin.clone().addScaledVector(direction, 55);
-  const tracer = new THREE.Line(new THREE.BufferGeometry().setFromPoints([origin, end]), new THREE.LineBasicMaterial({ color: 0xffd36b, transparent: true }));
-  scene.add(tracer);
-  setTimeout(() => scene.remove(tracer), 90);
-}
-function handleOnlineDeath(message) {
-  const remote = remotePlayers.get(message.victim);
-  if (remote) {
-    remote.object.visible = false;
-    remote.gun.visible = false;
-    remote.rifle.visible = false;
-  }
-  if (message.victim === localPlayerId) {
-    dead = true;
-    gun.visible = false;
-    rifle.visible = false;
-    stopRifleFire();
-    spinCameraDeath();
-  }
-}
-function handleOnlineRespawn(message) {
-  const remote = remotePlayers.get(message.id);
-  if (remote) {
-    remote.object.visible = true;
-    applyRemoteState(remote, message);
-  }
-  if (message.id === localPlayerId) {
-    player.position.set(message.x, message.y, message.z);
-    player.velocity.set(0, 0, 0);
-    dead = false;
-    worldAvatar.visible = thirdPerson;
-    updateWeaponVisibility();
-  }
-}
-function closeChat() {
-  chatOpen = false;
-  const input = document.getElementById('chat-input');
-  input.classList.remove('open');
-  input.value = '';
-  renderer.domElement.focus();
-}
-const chatInput = document.getElementById('chat-input');
-chatInput.addEventListener('keydown', event => {
-  if (event.code === 'Escape') { closeChat(); return; }
-  if (event.code === 'Enter') {
-    const text = chatInput.value.trim();
-    if (text && multiplayerSocket && multiplayerSocket.readyState === WebSocket.OPEN) {
-      multiplayerSocket.send(JSON.stringify({ type: 'chat', text }));
-    }
-    closeChat();
-  }
-  event.stopPropagation();
-});
+let dead = false;
 function spinCameraDeath() {
   const startYaw = player.yaw;
   const startPitch = player.pitch;
   const startedAt = performance.now();
+  const duration = 1000;
   function animateCamera(now) {
-    const rotations = (now - startedAt) / 850;
-    camera.rotation.set(startPitch, startYaw + rotations * Math.PI * 2, 0);
-    if (dead) requestAnimationFrame(animateCamera);
+    const progress = Math.min((now - startedAt) / duration, 1);
+    camera.rotation.set(startPitch, startYaw + progress * Math.PI * 2, 0);
+    if (progress < 1 && dead) requestAnimationFrame(animateCamera);
   }
   requestAnimationFrame(animateCamera);
 }
@@ -316,6 +154,205 @@ function spinDeath(sprite, respawnX, respawnZ, showAfter = true) {
   }
   requestAnimationFrame(animateDeath);
 }
+function addRemotePlayer(playerId) {
+  if (remotePlayers.has(playerId)) return;
+  const sprite = createCharacter();
+  const nameTag = createNameTag('PLAYER');
+  sprite.add(nameTag);
+  sprite.visible = true;
+  sprite.position.set(0, 0, 0);
+  const remote = new THREE.Group();
+  const remoteGun = gun.clone();
+  const remoteRifle = rifle.clone();
+  remoteGun.visible = true;
+  remoteGun.scale.setScalar(.27);
+  remoteGun.position.set(.62, 1.0, -.28);
+  remoteGun.rotation.set(-.18, 0, -.12);
+  remoteRifle.visible = false;
+  remoteRifle.scale.setScalar(.22);
+  remoteRifle.position.set(.62, 1.0, -.28);
+  remoteRifle.rotation.set(-.18, 0, -.12);
+  remote.add(sprite, remoteGun, remoteRifle);
+  scene.add(remote);
+  remotePlayers.set(playerId, { object: remote, sprite, gun: remoteGun, rifle: remoteRifle, nameTag, yaw: 0, pitch: 0 });
+}
+function renderRoomList(rooms = []) {
+  const roomList = document.getElementById('room-list');
+  roomList.replaceChildren();
+  if (!rooms.length) {
+    roomList.textContent = 'NO OPEN GAMES YET';
+    return;
+  }
+  rooms.forEach(room => {
+    const row = document.createElement('div');
+    row.className = 'room-row';
+    const label = document.createElement('span');
+    label.textContent = `${room.name} · ${room.players} / 5 PLAYERS`;
+    const button = document.createElement('button');
+    button.className = 'neon-button';
+    button.type = 'button';
+    button.textContent = 'Join game';
+    button.dataset.roomId = room.id;
+    row.append(label, button);
+    roomList.append(row);
+  });
+}
+function enterGrassGame() {
+  if (roomJoined) return;
+  roomJoined = true;
+  currentMap = 'grass';
+  maxPlayers = 5;
+  setMapVisual('grass');
+  started = true;
+  dead = false;
+  worldAvatar.visible = thirdPerson;
+  updateWeaponVisibility();
+  document.body.classList.add('playing');
+  document.getElementById('intro-panel').classList.add('hidden');
+  renderer.domElement.requestPointerLock();
+}
+function connectMultiplayer() {
+  if (multiplayerSocket && multiplayerSocket.readyState <= WebSocket.OPEN) return;
+  const configuredHost = new URLSearchParams(location.search).get('server');
+  const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+  const socketAddress = configuredHost || window.PLERY_MULTIPLAYER_SERVER || `${location.hostname || 'localhost'}:8765`;
+  const socketUrl = socketAddress.startsWith('ws://') || socketAddress.startsWith('wss://')
+    ? socketAddress
+    : `${protocol}://${socketAddress}`;
+  multiplayerSocket = new WebSocket(`${socketUrl}/?map=${currentMap}`);
+  multiplayerSocket.addEventListener('message', event => {
+    const message = JSON.parse(event.data);
+    if (message.type === 'rooms') {
+      renderRoomList(message.rooms);
+      updatePlayerCount(message.rooms.reduce((total, room) => total + room.players, 0), 'grass');
+    }
+    if (message.type === 'room-joined') {
+      localPlayerId = message.id;
+      message.peers.forEach(peer => {
+        addRemotePlayer(peer.id);
+        const remote = remotePlayers.get(peer.id);
+        remote.object.position.set(peer.x, peer.y - 2.2, peer.z);
+        updateNameTag(remote.nameTag, peer.name);
+      });
+      enterGrassGame();
+    }
+    if (message.type === 'room-error') {
+      document.getElementById('server-status').textContent = message.message;
+    }
+    if (message.type === 'join') { addRemotePlayer(message.id); addChatMessage('SYSTEM', `${message.name || 'PLAYER'} joined the game`); }
+    if (message.type === 'leave') {
+      const remote = remotePlayers.get(message.id);
+      if (remote) scene.remove(remote.object);
+      remotePlayers.delete(message.id);
+    }
+    if (message.type === 'state') {
+      addRemotePlayer(message.id);
+      const remote = remotePlayers.get(message.id);
+      remote.object.position.set(message.x, message.y - 2.2, message.z);
+      remote.object.rotation.y = message.yaw ?? 0;
+      remote.gun.rotation.x = message.pitch ?? -.18;
+      remote.gun.visible = message.weapon !== 'rifle';
+      remote.rifle.visible = message.weapon === 'rifle';
+      updateNameTag(remote.nameTag, message.name);
+    }
+    if (message.type === 'rocket-launch') spawnRocket(new THREE.Vector3(message.x, message.y, message.z), new THREE.Vector3(message.dx, message.dy, message.dz).normalize());
+    if (message.type === 'rocket-explode') explodeRocket(new THREE.Vector3(message.x, message.y, message.z));
+    if (message.type === 'death') {
+      const deathSound = deathSfx.cloneNode();
+      deathSound.volume = deathSfx.volume;
+      deathSound.play().catch(() => {});
+      if (message.killer === localPlayerId) {
+        profileStats.kills += 1;
+        saveProfileStats();
+        updateProfileView();
+      }
+      if (!message.victim || message.victim === localPlayerId) {
+        dead = true;
+        gun.visible = false;
+        rifle.visible = false;
+        worldAvatar.visible = false;
+        spinCameraDeath();
+      } else {
+        const remote = remotePlayers.get(message.victim);
+        spinDeath(remote?.object, message.rx, message.rz, true);
+      }
+    }
+    if (message.type === 'respawn') {
+      const remote = remotePlayers.get(message.id);
+      if (remote) {
+        remote.object.position.set(message.x, message.y - 2.2, message.z);
+        remote.object.visible = true;
+        remote.sprite.visible = true;
+      }
+      if (!message.id || message.id === localPlayerId) {
+        dead = false;
+        player.position.set(message.x, message.y, message.z);
+        player.velocity.set(0, 0, 0);
+        worldAvatar.position.set(message.x, message.y - 2.2, message.z);
+        worldAvatar.visible = started && thirdPerson;
+        updateWeaponVisibility();
+        camera.position.copy(player.position);
+        camera.rotation.set(player.pitch, player.yaw, 0);
+      }
+    }
+    if (message.type === 'chat') addChatMessage(message.name, message.text);
+  });
+  multiplayerSocket.addEventListener('error', () => {
+    document.getElementById('server-status').textContent = 'MULTIPLAYER SERVER UNAVAILABLE';
+  });
+}
+function updatePlayerCount(count, mapName = currentMap) {
+  const playerCount = document.getElementById('player-count');
+  const limit = mapLimits[mapName] || maxPlayers;
+  if (playerCount) playerCount.textContent = `${Math.min(count ?? remotePlayers.size + 1, limit)} / ${limit} PLAYERS`;
+}
+function sendPlayerState(time) {
+  if (!multiplayerSocket || multiplayerSocket.readyState !== WebSocket.OPEN || time - lastNetworkUpdate < 50) return;
+  lastNetworkUpdate = time;
+  multiplayerSocket.send(JSON.stringify({ type: 'state', x: player.position.x, y: player.position.y, z: player.position.z, yaw: player.yaw, pitch: player.pitch, weapon: activeWeapon, name: profileStats.name }));
+}
+function sendProfileName() {
+  if (multiplayerSocket && multiplayerSocket.readyState === WebSocket.OPEN) {
+    multiplayerSocket.send(JSON.stringify({ type: 'profile', name: profileStats.name }));
+  }
+}
+function addChatMessage(name, text) {
+  const messages = document.getElementById('chat-messages');
+  const line = document.createElement('div');
+  line.className = 'chat-line';
+  const author = document.createElement('b');
+  author.textContent = `${name}: `;
+  line.append(author, document.createTextNode(text));
+  messages.append(line);
+  while (messages.children.length > 7) messages.firstElementChild.remove();
+  setTimeout(() => { if (!chatOpen && line.parentElement) line.remove(); }, 9000);
+}
+function openChat() {
+  if (!started) return;
+  chatOpen = true;
+  const input = document.getElementById('chat-input');
+  input.classList.add('open'); input.focus();
+}
+function closeChat() {
+  chatOpen = false;
+  const input = document.getElementById('chat-input');
+  input.classList.remove('open'); input.value = '';
+  renderer.domElement.focus();
+}
+const chatInput = document.getElementById('chat-input');
+chatInput.addEventListener('keydown', event => {
+  if (event.code === 'Escape') { closeChat(); return; }
+  if (event.code === 'Enter') {
+    const text = chatInput.value.trim();
+    if (text && multiplayerSocket && multiplayerSocket.readyState === WebSocket.OPEN) {
+      addChatMessage(profileStats.name, text);
+      multiplayerSocket.send(JSON.stringify({ type: 'chat', text }));
+    }
+    closeChat();
+  }
+  event.stopPropagation();
+});
+
 const ambient = new THREE.HemisphereLight(0x91a7c1, 0x365344, 2.2);
 scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xffc07b, 3.2);
@@ -470,26 +507,6 @@ addRiflePart(new THREE.BoxGeometry(.3, .24, .65), rifleAccent, [0, -.02, -.78]);
 addRiflePart(new THREE.BoxGeometry(.25, .25, .78), rifleBody, [0, .01, .73]);
 addRiflePart(new THREE.BoxGeometry(.22, .52, .3), rifleBody, [0, -.35, -.05], [0, 0, -.12]);
 addRiflePart(new THREE.CylinderGeometry(.075, .075, 1.45, 12), rifleAccent, [0, .02, -1.45], [Math.PI / 2, 0, 0]);
-const rifleMuzzleFlash = new THREE.Mesh(
-  new THREE.SphereGeometry(.28, 16, 16),
-  new THREE.MeshBasicMaterial({ color: 0xffffa0 })
-);
-rifleMuzzleFlash.position.set(0, .02, -2.2);
-rifleMuzzleFlash.scale.set(1, 1, 1.4);
-rifleMuzzleFlash.visible = false;
-rifle.add(rifleMuzzleFlash);
-const rifleMuzzleBurst = new THREE.Mesh(
-  new THREE.ConeGeometry(.32, .8, 8),
-  new THREE.MeshBasicMaterial({ color: 0xffd928, transparent: true, opacity: .9 })
-);
-rifleMuzzleBurst.rotation.x = Math.PI / 2;
-rifleMuzzleBurst.position.set(0, .02, -2.65);
-rifleMuzzleBurst.visible = false;
-rifle.add(rifleMuzzleBurst);
-const rifleMuzzleLight = new THREE.PointLight(0xffd21f, 14, 7);
-rifleMuzzleLight.position.copy(rifleMuzzleFlash.position);
-rifleMuzzleLight.visible = false;
-rifle.add(rifleMuzzleLight);
 rifle.position.set(.66, -.38, -1.05);
 rifle.rotation.set(-.08, -.16, -.08);
 rifle.visible = false;
@@ -514,10 +531,7 @@ const muzzle = new THREE.Mesh(new THREE.SphereGeometry(.16, 8, 8), new THREE.Mes
 muzzle.position.set(0, 0, -2.12); muzzle.visible = false; gun.add(muzzle);
 let recoil = 0;
 let rifleFireInterval = 0;
-let rifleFlashTimeout = 0;
 const activeRockets = [];
-const zombies = [];
-let survivalMode = false;
 const rifleSfx = new Audio('freesound_community-silenced-submachine-gun-85329.mp3');
 rifleSfx.preload = 'auto';
 rifleSfx.volume = .5;
@@ -528,76 +542,6 @@ rocketSfx.volume = .7;
 const deathSfx = new Audio('Recording%202026-09-12%20171517.mp4');
 deathSfx.preload = 'auto';
 deathSfx.volume = .8;
-function createZombie(x, z) {
-  const zombie = createCharacter(0x70b85d);
-  zombie.position.set(x, 0, z);
-  zombie.userData.speed = 1.2 + Math.random() * .8;
-  zombie.userData.hit = false;
-  zombie.traverse(part => { part.castShadow = true; part.receiveShadow = true; });
-  scene.add(zombie);
-  zombies.push(zombie);
-}
-function clearZombies() {
-  zombies.splice(0).forEach(zombie => scene.remove(zombie));
-}
-function startSurvival() {
-  clearZombies();
-  for (let index = 0; index < 6; index += 1) {
-    const angle = (index / 6) * Math.PI * 2;
-    createZombie(Math.cos(angle) * 24, Math.sin(angle) * 24);
-  }
-}
-function updateZombies(dt) {
-  for (let index = zombies.length - 1; index >= 0; index -= 1) {
-    const zombie = zombies[index];
-    const direction = player.position.clone().sub(zombie.position);
-    direction.y = 0;
-    const distance = direction.length();
-    if (distance < 1.45) {
-      dead = true;
-      gun.visible = false; rifle.visible = false;
-      worldAvatar.visible = false;
-      spinCameraDeath();
-      setTimeout(() => {
-        if (!survivalMode || !started) return;
-        dead = false;
-        const angle = Math.random() * Math.PI * 2;
-        const distanceFromCenter = 28 + Math.random() * 20;
-        player.position.set(Math.cos(angle) * distanceFromCenter, playerGroundHeight, Math.sin(angle) * distanceFromCenter);
-        player.velocity.set(0, 0, 0);
-        startSurvival();
-        worldAvatar.visible = thirdPerson;
-        updateWeaponVisibility();
-      }, 1800);
-      return;
-    }
-    if (distance > 0) {
-      direction.normalize();
-      zombie.position.addScaledVector(direction, zombie.userData.speed * dt);
-      zombie.lookAt(player.position.x, zombie.position.y + 1, player.position.z);
-    }
-  }
-}
-function hitZombie(origin, direction) {
-  let target = null;
-  let nearestDistance = 55;
-  for (const zombie of zombies) {
-    const offset = zombie.position.clone().add(new THREE.Vector3(0, 1.2, 0)).sub(origin);
-    const distanceAlongShot = offset.dot(direction);
-    if (distanceAlongShot < 0 || distanceAlongShot > nearestDistance) continue;
-    const closestPoint = origin.clone().addScaledVector(direction, distanceAlongShot);
-    if (closestPoint.distanceTo(zombie.position.clone().add(new THREE.Vector3(0, 1.2, 0))) < 1.25) {
-      target = zombie;
-      nearestDistance = distanceAlongShot;
-    }
-  }
-  if (!target) return;
-  scene.remove(target);
-  zombies.splice(zombies.indexOf(target), 1);
-  setTimeout(() => {
-    if (survivalMode && started && !dead) createZombie((Math.random() - .5) * 90, (Math.random() - .5) * 90);
-  }, 700);
-}
 function explodeRocket(position) {
   const explosionSound = rocketSfx.cloneNode();
   explosionSound.volume = rocketSfx.volume;
@@ -623,16 +567,6 @@ function shoot() {
   const origin = new THREE.Vector3(); const direction = new THREE.Vector3(0, 0, -1);
   camera.getWorldPosition(origin); direction.applyQuaternion(camera.quaternion);
   if (activeWeapon === 'rifle') {
-    clearTimeout(rifleFlashTimeout);
-    rifleMuzzleFlash.visible = true;
-    rifleMuzzleBurst.visible = true;
-    rifleMuzzleLight.visible = true;
-    rifleMuzzleFlash.scale.set(1 + Math.random() * .25, 1 + Math.random() * .25, 1.6 + Math.random() * .5);
-    rifleFlashTimeout = setTimeout(() => {
-      rifleMuzzleFlash.visible = false;
-      rifleMuzzleBurst.visible = false;
-      rifleMuzzleLight.visible = false;
-    }, 120);
     rifleSfx.pause();
     rifleSfx.currentTime = 0;
     rifleSfx.play().catch(() => {});
@@ -641,43 +575,57 @@ function shoot() {
     const end = origin.clone().addScaledVector(direction, 55);
     const tracer = new THREE.Line(new THREE.BufferGeometry().setFromPoints([origin, end]), new THREE.LineBasicMaterial({ color: 0xffd36b, transparent: true }));
     scene.add(tracer); setTimeout(() => scene.remove(tracer), 65);
-    if (!survivalMode) sendOnlineShot(origin, direction);
-    if (survivalMode) hitZombie(origin, direction);
+    if (multiplayerSocket && multiplayerSocket.readyState === WebSocket.OPEN) {
+      multiplayerSocket.send(JSON.stringify({ type: 'shoot', x: origin.x, y: origin.y, z: origin.z, dx: direction.x, dy: direction.y, dz: direction.z }));
+    }
     return;
   }
   muzzle.visible = true;
   setTimeout(() => { muzzle.visible = false; }, 55);
   origin.add(direction.clone().multiplyScalar(1.8));
   spawnRocket(origin, direction);
-  if (!survivalMode) sendOnlineShot(origin, direction);
+  if (multiplayerSocket && multiplayerSocket.readyState === WebSocket.OPEN) {
+    multiplayerSocket.send(JSON.stringify({ type: 'rocket', x: origin.x, y: origin.y, z: origin.z, dx: direction.x, dy: direction.y, dz: direction.z }));
+  }
 }
 
-function startGame(mode = 'grass', connected = false) {
-  currentMap = 'grass';
-  setMapVisual();
-  survivalMode = mode === 'survival';
-  started = true; dead = false; worldAvatar.visible = thirdPerson; updateWeaponVisibility(); document.body.classList.add('playing'); document.getElementById('intro-panel').classList.add('hidden');
-  document.body.classList.toggle('online-mode', !survivalMode);
-  if (survivalMode) startSurvival();
-  if (!survivalMode && !connected) connectMultiplayer();
-  renderer.domElement.requestPointerLock();
+function openMultiplayerConnection() {
+  if (!multiplayerSocket || multiplayerSocket.readyState > WebSocket.OPEN) connectMultiplayer();
+}
+function createRoom() {
+  const playerName = document.getElementById('server-player-name').value.trim();
+  if (playerName) {
+    profileStats.name = playerName.slice(0, 16);
+    saveProfileStats();
+  }
+  const roomName = document.getElementById('room-name-input').value.trim() || `${profileStats.name}'s game`;
+  openMultiplayerConnection();
+  const sendCreate = () => multiplayerSocket.send(JSON.stringify({ type: 'room-create', roomName, name: profileStats.name }));
+  if (multiplayerSocket.readyState === WebSocket.OPEN) sendCreate();
+  else multiplayerSocket.addEventListener('open', sendCreate, { once: true });
+}
+function joinRoom(roomId) {
+  openMultiplayerConnection();
+  const sendJoin = () => multiplayerSocket.send(JSON.stringify({ type: 'room-join', roomId, name: profileStats.name }));
+  if (multiplayerSocket.readyState === WebSocket.OPEN) sendJoin();
+  else multiplayerSocket.addEventListener('open', sendJoin, { once: true });
 }
 const menuView = document.getElementById('menu-view');
-const onlineLobby = document.getElementById('online-lobby');
+const serverBrowser = document.getElementById('server-browser');
 const profileView = document.getElementById('profile-view');
 const profileStats = {
-  name: localStorage.getItem('grassGameProfileName') || 'Player',
-  kills: 0
+  name: localStorage.getItem('pleryProfileName') || 'Player',
+  kills: Number(localStorage.getItem('pleryKills') || 0)
 };
 function saveProfileStats() {
-  localStorage.setItem('grassGameProfileName', profileStats.name);
-  localStorage.setItem('grassGameKills', String(profileStats.kills));
+  localStorage.setItem('pleryProfileName', profileStats.name);
+  localStorage.setItem('pleryKills', String(profileStats.kills));
 }
 function updateProfileView() {
   document.getElementById('profile-name-input').value = profileStats.name;
   document.getElementById('profile-name-display').textContent = profileStats.name.toUpperCase();
   document.getElementById('profile-kills').textContent = profileStats.kills;
-  document.getElementById('profile-level').textContent = '0';
+  document.getElementById('profile-level').textContent = Math.floor(profileStats.kills / 5) + 1;
   updateNameTag(worldNameTag, profileStats.name);
 }
 document.getElementById('profile-name-display').addEventListener('input', event => {
@@ -696,63 +644,57 @@ document.getElementById('profile-button').addEventListener('click', () => {
   profileView.hidden = false;
   updateProfileView();
 });
-document.getElementById('start-button').addEventListener('click', () => {
-  menuView.hidden = true;
-  onlineLobby.hidden = false;
-  document.getElementById('lobby-player-name').value = profileStats.name;
-  document.getElementById('lobby-status').textContent = 'LOADING ROOMS...';
-  connectMultiplayer();
-});
-document.getElementById('lobby-back-button').addEventListener('click', () => {
-  stopMultiplayer();
-  onlineLobby.hidden = true;
-  menuView.hidden = false;
-});
-document.getElementById('create-room-button').addEventListener('click', () => sendRoomRequest('room-create'));
-document.getElementById('refresh-rooms-button').addEventListener('click', () => {
-  if (multiplayerSocket?.readyState === WebSocket.OPEN) multiplayerSocket.send(JSON.stringify({ type: 'rooms' }));
-});
 document.getElementById('save-profile-button').addEventListener('click', () => {
   const name = document.getElementById('profile-name-input').value.trim();
   if (name) profileStats.name = name.slice(0, 16);
   saveProfileStats();
   updateProfileView();
-});
-document.getElementById('remove-data-button').addEventListener('click', () => {
-  localStorage.removeItem('grassGameProfileName');
-  localStorage.removeItem('grassGameKills');
-  profileStats.name = 'Player';
-  profileStats.kills = 0;
-  updateProfileView();
+  sendProfileName();
 });
 document.getElementById('profile-back-button').addEventListener('click', () => {
   profileView.hidden = true;
   menuView.hidden = false;
 });
-document.getElementById('survival-button').addEventListener('click', () => startGame('survival'));
+document.getElementById('start-button').addEventListener('click', () => {
+  menuView.hidden = true;
+  serverBrowser.hidden = false;
+  document.getElementById('server-player-name').value = profileStats.name;
+  document.getElementById('room-name-input').value = '';
+  document.getElementById('server-status').textContent = 'CONNECTING TO WORLD SERVER';
+  openMultiplayerConnection();
+});
+document.getElementById('back-button').addEventListener('click', () => {
+  serverBrowser.hidden = true;
+  menuView.hidden = false;
+  document.getElementById('server-status').textContent = '';
+});
+document.getElementById('host-button').addEventListener('click', createRoom);
+document.getElementById('refresh-rooms-button').addEventListener('click', () => {
+  if (multiplayerSocket?.readyState === WebSocket.OPEN) multiplayerSocket.send(JSON.stringify({ type: 'rooms' }));
+});
+document.getElementById('room-list').addEventListener('click', event => {
+  const button = event.target.closest('button[data-room-id]');
+  if (button) joinRoom(button.dataset.roomId);
+});
 document.getElementById('leave-button').addEventListener('click', () => {
   started = false;
   dead = false;
-  survivalMode = false;
-  clearZombies();
-  stopMultiplayer();
   pointerLocked = false;
   gun.visible = false; rifle.visible = false;
   worldGun.visible = false; worldRifle.visible = false;
-  setMapVisual('grass');
+  setMapVisual();
   worldAvatar.visible = false;
   document.body.classList.remove('playing');
-  document.body.classList.remove('online-mode');
   document.getElementById('intro-panel').classList.remove('hidden');
+  menuView.hidden = true;
+  serverBrowser.hidden = false;
+  roomJoined = false;
+  if (multiplayerSocket?.readyState === WebSocket.OPEN) multiplayerSocket.send(JSON.stringify({ type: 'rooms' }));
   if (document.pointerLockElement) document.exitPointerLock();
 });
 renderer.domElement.addEventListener('click', () => { if (started) renderer.domElement.requestPointerLock(); });
 function stopRifleFire() {
   if (rifleFireInterval) { clearInterval(rifleFireInterval); rifleFireInterval = 0; }
-  clearTimeout(rifleFlashTimeout);
-  rifleMuzzleFlash.visible = false;
-  rifleMuzzleBurst.visible = false;
-  rifleMuzzleLight.visible = false;
   rifleSfx.pause();
   rifleSfx.currentTime = 0;
 }
@@ -773,12 +715,7 @@ document.addEventListener('pointerlockchange', () => {
 document.addEventListener('keydown', e => keys.add(e.code));
 document.addEventListener('keyup', e => keys.delete(e.code));
 document.addEventListener('keydown', e => {
-  if (e.code === 'KeyT' && started && !e.repeat && !survivalMode) {
-    chatOpen = true;
-    document.getElementById('chat-input').classList.add('open');
-    document.getElementById('chat-input').focus();
-    return;
-  }
+  if (e.code === 'KeyT' && started && !e.repeat) { openChat(); return; }
   if (chatOpen) return;
   if (dead) return;
   if (e.code === 'Digit1' || e.code === 'Digit2') {
@@ -843,9 +780,8 @@ function animate() {
       camera.position.copy(player.position); camera.rotation.set(player.pitch, player.yaw, 0);
     }
   }
-  if (started && survivalMode && !dead) updateZombies(dt);
-  if (started && !survivalMode) sendNetworkState(performance.now());
   if (!started) { worldAvatar.visible = false; camera.position.set(0, 38, 0.1); camera.lookAt(0, 0, 0); }
+  if (started) sendPlayerState(performance.now());
   for (let index = activeRockets.length - 1; index >= 0; index -= 1) {
     const rocket = activeRockets[index];
     rocket.age += dt;

@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0; url=PleryGun3D.html">
-  <title>PleryGun3D</title>
+  <title>Plery Online</title>
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#07100d">
   <meta name="mobile-web-app-capable" content="yes">
@@ -16,8 +15,7 @@
 <body>
   <main id="game-shell">
     <div id="crosshair" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-    <button id="leave-button" class="neon-button" type="button">Leave game</button>
-    <div id="kill-feed" aria-live="polite"></div>
+    <button id="leave-button" class="neon-button" type="button">Leave server</button>
     <canvas id="avatar-2d" width="64" height="128" aria-label="Player avatar"></canvas>
     <section id="chat-panel" aria-label="Online chat">
       <div id="chat-title">ONLINE CHAT</div>
@@ -26,31 +24,9 @@
     </section>
     <section id="intro-panel">
       <div id="menu-view">
-        <p class="eyebrow">PleryGun3D</p>
-        <button id="start-button" class="neon-button" type="button">Join grass game</button>
-        <button id="survival-button" class="neon-button" type="button">Survival Campaign</button>
+        <p class="eyebrow">Plery Online</p>
+        <button id="start-button" class="neon-button" type="button">Join server</button>
         <button id="profile-button" class="neon-button" type="button">Profile</button>
-      </div>
-      <div id="online-lobby" hidden>
-        <div class="lobby-panel">
-          <div class="lobby-heading">
-            <div>
-              <p class="eyebrow">Online rooms</p>
-              <h2>Join a game</h2>
-            </div>
-            <button id="lobby-back-button" class="text-button" type="button">Back</button>
-          </div>
-          <label for="lobby-player-name">Player name</label>
-          <input id="lobby-player-name" type="text" maxlength="16" autocomplete="off" placeholder="Player">
-          <label for="lobby-room-name">Room name</label>
-          <input id="lobby-room-name" type="text" maxlength="24" autocomplete="off" placeholder="Grass room">
-          <div class="lobby-actions">
-            <button id="create-room-button" class="neon-button" type="button">Create room</button>
-          </div>
-          <div class="room-list-heading"><span>Available rooms</span><button id="refresh-rooms-button" class="text-button" type="button">Refresh</button></div>
-          <div id="room-list" aria-live="polite"></div>
-          <div id="lobby-status" aria-live="polite"></div>
-        </div>
       </div>
       <div id="profile-view" hidden>
         <div class="profile-panel">
@@ -64,9 +40,31 @@
             <div><span>LEVEL</span><strong id="profile-level">1</strong></div>
           </div>
           <button id="save-profile-button" class="neon-button" type="button">Save profile</button>
-          <button id="remove-data-button" class="text-button" type="button">Remove data</button>
           <button id="profile-back-button" class="text-button" type="button">Back</button>
         </div>
+      </div>
+      <div id="server-browser" hidden>
+        <div class="browser-heading">
+          <div>
+            <p class="eyebrow">Multiplayer</p>
+            <h2>Server browser</h2>
+          </div>
+          <button id="back-button" class="text-button" type="button">Back</button>
+        </div>
+        <div class="server-panel">
+          <label for="server-player-name">Player name</label>
+          <input id="server-player-name" type="text" maxlength="16" autocomplete="off" placeholder="Player name">
+          <label for="room-name-input">Server name</label>
+          <div class="room-tools">
+            <input id="room-name-input" type="text" maxlength="24" autocomplete="off" placeholder="Server name">
+            <button id="host-button" class="neon-button" type="button">Create server</button>
+          </div>
+        </div>
+        <div class="server-list-heading">
+          <span>Open servers</span>
+          <button id="refresh-rooms-button" class="text-button" type="button">Refresh</button>
+        </div>
+        <div id="room-list" aria-live="polite"></div>
       </div>
       <div id="server-status" aria-live="polite"></div>
     </section>
@@ -79,9 +77,9 @@
     }
   </script>
   <script src="server-config.js"></script>
-  <script type="module" src="game.js?v=90"></script>
+  <script type="module" src="game.js?v=82"></script>
   <script>
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js');
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=4');
   </script>
 </body>
 </html>

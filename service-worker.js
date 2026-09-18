@@ -1,8 +1,7 @@
-const CACHE_NAME = 'plerygun3d-v14';
+const CACHE_NAME = 'plery-online-v4';
 const APP_FILES = [
   './',
-  './PleryGun3D.html',
-  './server-config.js',
+  './index.html',
   './styles.css',
   './game.js',
   './grass-texture.jpg',

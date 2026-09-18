@@ -1,9 +1,6 @@
 services:
   - type: web
-    name: plerygun3d-multiplayer
+    name: plery-online-server
     runtime: docker
     plan: free
-    dockerfilePath: ./Dockerfile
-    envVars:
-      - key: PORT
-        value: 8765
+    healthCheckPath: /

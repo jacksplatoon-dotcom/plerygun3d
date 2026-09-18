@@ -1,10 +1,13 @@
 {
-  "name": "plerygun3d",
+  "name": "plery-online",
   "version": "1.0.0",
-  "description": "PleryGun3D pixel shooter",
+  "description": "Plery Online pixel multiplayer shooter",
   "main": "electron-main.cjs",
-  "author": "PleryGun3D",
+  "author": "Plery Online",
   "license": "UNLICENSED",
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
   "scripts": {
     "start": "electron .",
     "build:windows": "electron-builder --win portable"
@@ -13,23 +16,15 @@
     "electron": "^37.0.0",
     "electron-builder": "^26.0.0"
   },
-  "dependencies": {
-    "ws": "^8.18.0"
-  },
   "build": {
-    "appId": "com.plerygun3d.game",
-    "productName": "PleryGun3D",
+    "appId": "com.plery.online",
+    "productName": "Plery Online",
     "files": [
       "electron-main.cjs",
-      "multiplayer-server.cjs",
       "game.js",
       "index.html",
-      "PleryGun3D.html",
-      "PleryGun3D-Online.html",
       "styles.css",
-      "manifest.webmanifest",
-      "server-config.js",
-      "service-worker.js",
+      "multiplayer-server.cjs",
       "grass-texture.jpg",
       "skybox.jpg",
       "minecraft-tree.png",

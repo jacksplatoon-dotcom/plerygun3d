@@ -1,10 +1,15 @@
 const crypto = require('crypto');
+const http = require('http');
 const WebSocket = require('ws');
 
 const port = Number(process.env.PORT || 8765);
 const players = new Map();
 const rooms = new Map();
-const server = new WebSocket.Server({ port });
+const httpServer = http.createServer((request, response) => {
+  response.writeHead(200, { 'Content-Type': 'text/plain' });
+  response.end('Plery Online multiplayer server is running.');
+});
+const server = new WebSocket.Server({ server: httpServer });
 
 function send(socket, message) {
   if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
@@ -59,9 +64,17 @@ server.on('connection', socket => {
       joinRoom(player, room, message.name);
       return;
     }
+    if (message.type === 'profile') {
+      player.name = String(message.name || 'PLAYER').trim().slice(0, 16) || 'PLAYER';
+      return;
+    }
     if (message.type === 'state' && player.roomId && !player.dead) {
       player.name = String(message.name || 'PLAYER').slice(0, 16);
       player.state = { x: Number(message.x) || 0, y: Number(message.y) || 2.2, z: Number(message.z) || 12, yaw: Number(message.yaw) || 0, pitch: Number(message.pitch) || 0, weapon: message.weapon === 'rpg' ? 'rpg' : 'rifle' };
+      broadcastRoom(rooms.get(player.roomId), { type: 'state', id, name: player.name, ...player.state }, id);
+    }
+    if (message.type === 'weapon-switch' && player.roomId && !player.dead) {
+      player.state.weapon = message.weapon === 'rpg' ? 'rpg' : 'rifle';
       broadcastRoom(rooms.get(player.roomId), { type: 'state', id, name: player.name, ...player.state }, id);
     }
     if (message.type === 'shoot' && player.roomId && !player.dead) handleShot(player, message);
@@ -96,7 +109,21 @@ function handleShot(player, message) {
   if (!room || !length) return;
   const direction = { x: directionX / length, z: directionZ / length };
   const origin = { x: Number(message.x) || player.state.x, z: Number(message.z) || player.state.z };
-  broadcastRoom(room, { type: 'shoot', id: player.id, x: Number(message.x) || 0, y: Number(message.y) || 2.2, z: Number(message.z) || 12, dx: Number(message.dx) || 0, dy: Number(message.dy) || 0, dz: Number(message.dz) || 0, weapon: message.weapon }, player.id);
+  const shotOrigin = { x: Number(message.x) || 0, y: Number(message.y) || 2.2, z: Number(message.z) || 12 };
+  const shotDirection = { x: Number(message.dx) || 0, y: Number(message.dy) || 0, z: Number(message.dz) || 0 };
+  if (message.weapon === 'rpg') {
+    const rocketId = crypto.randomUUID();
+    const flightMs = 900;
+    const explosionPosition = {
+      x: shotOrigin.x + shotDirection.x * 24,
+      y: shotOrigin.y + shotDirection.y * 24,
+      z: shotOrigin.z + shotDirection.z * 24
+    };
+    broadcastRoom(room, { type: 'rocket-launch', id: player.id, rocketId, x: shotOrigin.x, y: shotOrigin.y, z: shotOrigin.z, dx: shotDirection.x, dy: shotDirection.y, dz: shotDirection.z, targetX: explosionPosition.x, targetY: explosionPosition.y, targetZ: explosionPosition.z, flightMs, weapon: 'rpg' }, player.id);
+    setTimeout(() => broadcastRoom(room, { type: 'rocket-explode', id: player.id, rocketId, x: explosionPosition.x, y: explosionPosition.y, z: explosionPosition.z, weapon: 'rpg' }), flightMs);
+  } else {
+    broadcastRoom(room, { type: 'shoot', id: player.id, x: shotOrigin.x, y: shotOrigin.y, z: shotOrigin.z, dx: shotDirection.x, dy: shotDirection.y, dz: shotDirection.z, weapon: 'rifle' }, player.id);
+  }
   let victim = null;
   let nearest = 55;
   for (const playerId of room.players) {
@@ -143,4 +170,4 @@ function broadcastRooms() {
   for (const player of players.values()) sendRooms(player.socket);
 }
 
-console.log(`PleryGun3D multiplayer server listening on port ${port}`);
+httpServer.listen(port, () => console.log(`PleryGun3D multiplayer server listening on port ${port}`));
