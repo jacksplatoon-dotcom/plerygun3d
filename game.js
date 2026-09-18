@@ -593,7 +593,10 @@ function createRoom() {
     profileStats.name = playerName.slice(0, 16);
     saveProfileStats();
   }
-  const roomName = document.getElementById('room-name-input').value.trim() || `${profileStats.name}'s game`;
+  const roomNameInput = document.getElementById('room-name-input');
+  const roomName = roomNameInput.value.trim() || `${profileStats.name}'s game ${Math.floor(Date.now() / 1000) % 1000}`;
+  roomNameInput.value = roomName;
+  document.getElementById('server-status').textContent = 'CREATING SERVER';
   openMultiplayerConnection();
   const sendCreate = () => multiplayerSocket.send(JSON.stringify({ type: 'room-create', roomName, name: profileStats.name }));
   if (multiplayerSocket.readyState === WebSocket.OPEN) sendCreate();
