@@ -658,7 +658,13 @@ document.getElementById('start-button').addEventListener('click', () => {
   openMultiplayerConnection();
 });
 ['server-player-name', 'room-name-input'].forEach(id => {
-  document.getElementById(id).addEventListener('keydown', event => event.stopPropagation());
+  document.getElementById(id).addEventListener('keydown', event => {
+    event.stopPropagation();
+    if (id === 'room-name-input' && event.key === 'Enter' && roomJoined && multiplayerSocket?.readyState === WebSocket.OPEN) {
+      event.preventDefault();
+      multiplayerSocket.send(JSON.stringify({ type: 'room-rename', roomName: event.currentTarget.value }));
+    }
+  });
 });
 document.getElementById('back-button').addEventListener('click', () => {
   serverBrowser.hidden = true;

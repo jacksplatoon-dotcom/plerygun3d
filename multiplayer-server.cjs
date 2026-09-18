@@ -57,9 +57,19 @@ server.on('connection', socket => {
       const name = String(message.roomName || '').trim().slice(0, 24);
       if (!name) return send(socket, { type: 'room-error', message: 'ENTER A ROOM NAME' });
       if ([...rooms.values()].some(room => room.name.toLowerCase() === name.toLowerCase())) return send(socket, { type: 'room-error', message: 'ROOM ALREADY EXISTS' });
-      const room = { id: crypto.randomUUID(), name, players: new Set() };
+      const room = { id: crypto.randomUUID(), name, ownerId: player.id, players: new Set() };
       rooms.set(room.id, room);
       joinRoom(player, room, message.name);
+      broadcastRooms();
+      return;
+    }
+    if (message.type === 'room-rename' && player.roomId) {
+      const room = rooms.get(player.roomId);
+      const name = String(message.roomName || '').trim().slice(0, 24);
+      if (!room || room.ownerId !== player.id) return send(socket, { type: 'room-error', message: 'ONLY THE SERVER OWNER CAN RENAME IT' });
+      if (!name) return send(socket, { type: 'room-error', message: 'ENTER A SERVER NAME' });
+      if ([...rooms.values()].some(candidate => candidate.id !== room.id && candidate.name.toLowerCase() === name.toLowerCase())) return send(socket, { type: 'room-error', message: 'SERVER NAME ALREADY EXISTS' });
+      room.name = name;
       broadcastRooms();
       return;
     }
@@ -180,6 +190,7 @@ function leaveRoom(player) {
     room.players.delete(player.id);
     broadcastRoom(room, { type: 'leave', id: player.id });
     if (!room.players.size) rooms.delete(room.id);
+    else if (room.ownerId === player.id) room.ownerId = room.players.values().next().value;
   }
   player.roomId = null;
   broadcastRooms();

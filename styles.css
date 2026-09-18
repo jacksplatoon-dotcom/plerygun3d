@@ -22,6 +22,7 @@ canvas { position: absolute; inset: 0; z-index: 0; display: block; width: 100%; 
 
 #intro-panel { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; pointer-events: none; transition: opacity .5s; }
 #intro-panel.hidden { opacity: 0; pointer-events: none; }
+#menu-view, #server-browser, #profile-view { pointer-events: auto; }
 #menu-view { width: min(440px, calc(100vw - 40px)); text-align: center; }
 #menu-view .eyebrow { margin-bottom: 12px; }
 #menu-view h1 { margin-bottom: 32px; }
