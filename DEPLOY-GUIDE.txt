@@ -1,0 +1,28 @@
+PLERYGUN3D ONLINE DEPLOYMENT
+
+The game files and multiplayer server are already prepared.
+
+1. Go to https://github.com and sign in.
+2. Click the + button, then New repository.
+3. Name it plerygun3d and create it.
+4. Click Add file > Upload files.
+5. Upload the contents of this game folder.
+   Do not upload the node_modules folder.
+6. Click Commit changes.
+7. Go to https://render.com and sign in with GitHub.
+8. Click New > Blueprint.
+9. Select the plerygun3d repository.
+10. Click Apply and wait for the service to deploy.
+11. Copy the Render service URL.
+
+After deployment, open server-config.js and replace the empty value with:
+
+window.PLERYGUN3D_MULTIPLAYER_SERVER = 'wss://YOUR-RENDER-URL.onrender.com';
+
+Then rebuild the Windows app:
+
+npm install
+npm run build:windows
+
+Everyone should use the rebuilt app. They click Join grass game, then click the same room name.
+No player needs to host the room.

@@ -1,0 +1,43 @@
+{
+  "name": "plerygun3d",
+  "version": "1.0.0",
+  "description": "PleryGun3D pixel shooter",
+  "main": "electron-main.cjs",
+  "author": "PleryGun3D",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "build:windows": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "build": {
+    "appId": "com.plerygun3d.game",
+    "productName": "PleryGun3D",
+    "files": [
+      "electron-main.cjs",
+      "multiplayer-server.cjs",
+      "game.js",
+      "index.html",
+      "PleryGun3D.html",
+      "PleryGun3D-Online.html",
+      "styles.css",
+      "manifest.webmanifest",
+      "server-config.js",
+      "service-worker.js",
+      "grass-texture.jpg",
+      "skybox.jpg",
+      "minecraft-tree.png",
+      "freesound_community-silenced-submachine-gun-85329.mp3",
+      "49053354-rocket-launch-306441.mp3",
+      "Recording 2026-09-12 171517.mp4",
+      "minecraft-tree-model/**/*"
+    ],
+    "win": { "target": "portable" }
+  }
+}

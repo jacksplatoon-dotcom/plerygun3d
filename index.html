@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="0; url=PleryGun3D.html">
+  <title>PleryGun3D</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#07100d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=3">
+</head>
+<body>
+  <main id="game-shell">
+    <div id="crosshair" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <button id="leave-button" class="neon-button" type="button">Leave game</button>
+    <div id="kill-feed" aria-live="polite"></div>
+    <canvas id="avatar-2d" width="64" height="128" aria-label="Player avatar"></canvas>
+    <section id="chat-panel" aria-label="Online chat">
+      <div id="chat-title">ONLINE CHAT</div>
+      <div id="chat-messages"></div>
+      <input id="chat-input" type="text" maxlength="120" autocomplete="off" placeholder="Press T to chat...">
+    </section>
+    <section id="intro-panel">
+      <div id="menu-view">
+        <p class="eyebrow">PleryGun3D</p>
+        <button id="start-button" class="neon-button" type="button">Join grass game</button>
+        <button id="survival-button" class="neon-button" type="button">Survival Campaign</button>
+        <button id="profile-button" class="neon-button" type="button">Profile</button>
+      </div>
+      <div id="online-lobby" hidden>
+        <div class="lobby-panel">
+          <div class="lobby-heading">
+            <div>
+              <p class="eyebrow">Online rooms</p>
+              <h2>Join a game</h2>
+            </div>
+            <button id="lobby-back-button" class="text-button" type="button">Back</button>
+          </div>
+          <label for="lobby-player-name">Player name</label>
+          <input id="lobby-player-name" type="text" maxlength="16" autocomplete="off" placeholder="Player">
+          <label for="lobby-room-name">Room name</label>
+          <input id="lobby-room-name" type="text" maxlength="24" autocomplete="off" placeholder="Grass room">
+          <div class="lobby-actions">
+            <button id="create-room-button" class="neon-button" type="button">Create room</button>
+          </div>
+          <div class="room-list-heading"><span>Available rooms</span><button id="refresh-rooms-button" class="text-button" type="button">Refresh</button></div>
+          <div id="room-list" aria-live="polite"></div>
+          <div id="lobby-status" aria-live="polite"></div>
+        </div>
+      </div>
+      <div id="profile-view" hidden>
+        <div class="profile-panel">
+          <p class="eyebrow">Player profile</p>
+          <h2 id="profile-name-display" contenteditable="true" spellcheck="false" role="textbox" aria-label="Editable player name">PLAYER</h2>
+          <button id="change-name-button" class="neon-button" type="button">Change name</button>
+          <label for="profile-name-input">Player name</label>
+          <input id="profile-name-input" type="text" maxlength="16" autocomplete="off">
+          <div class="profile-stats">
+            <div><span>KILLS</span><strong id="profile-kills">0</strong></div>
+            <div><span>LEVEL</span><strong id="profile-level">1</strong></div>
+          </div>
+          <button id="save-profile-button" class="neon-button" type="button">Save profile</button>
+          <button id="remove-data-button" class="text-button" type="button">Remove data</button>
+          <button id="profile-back-button" class="text-button" type="button">Back</button>
+        </div>
+      </div>
+      <div id="server-status" aria-live="polite"></div>
+    </section>
+  </main>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script src="server-config.js"></script>
+  <script type="module" src="game.js?v=90"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js');
+  </script>
+</body>
+</html>
