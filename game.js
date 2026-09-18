@@ -658,7 +658,10 @@ document.getElementById('start-button').addEventListener('click', () => {
   openMultiplayerConnection();
 });
 ['server-player-name', 'room-name-input'].forEach(id => {
-  document.getElementById(id).addEventListener('keydown', event => {
+  const input = document.getElementById(id);
+  input.addEventListener('click', event => event.stopPropagation());
+  input.addEventListener('pointerdown', event => event.stopPropagation());
+  input.addEventListener('keydown', event => {
     event.stopPropagation();
     if (id === 'room-name-input' && event.key === 'Enter' && roomJoined && multiplayerSocket?.readyState === WebSocket.OPEN) {
       event.preventDefault();

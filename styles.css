@@ -22,7 +22,7 @@ canvas { position: absolute; inset: 0; z-index: 0; display: block; width: 100%; 
 
 #intro-panel { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; pointer-events: none; transition: opacity .5s; }
 #intro-panel.hidden { opacity: 0; pointer-events: none; }
-#menu-view, #server-browser, #profile-view { pointer-events: auto; }
+#menu-view, #server-browser, #profile-view { pointer-events: auto !important; }
 #menu-view { width: min(440px, calc(100vw - 40px)); text-align: center; }
 #menu-view .eyebrow { margin-bottom: 12px; }
 #menu-view h1 { margin-bottom: 32px; }
@@ -46,7 +46,8 @@ canvas { position: absolute; inset: 0; z-index: 0; display: block; width: 100%; 
 .browser-heading h2 { margin: 0; font-size: clamp(28px, 4vw, 42px); letter-spacing: -.04em; }
 .server-panel { padding: 16px; border: 1px solid rgba(176, 38, 255, .65); background: #07070d; box-shadow: inset 0 0 18px rgba(176, 38, 255, .08); }
 .server-panel label { display: block; margin-bottom: 8px; color: #d36bff; font: 9px 'DM Mono', monospace; text-transform: uppercase; }
-#server-player-name, #room-name-input { width: 100%; border: 1px solid rgba(176, 38, 255, .8); border-radius: 2px; outline: 0; padding: 10px; background: #020205; color: #fff; font: 10px 'DM Mono', monospace; box-shadow: 0 0 8px rgba(176, 38, 255, .14); }
+#server-player-name, #room-name-input { width: 100%; border: 1px solid rgba(176, 38, 255, .8); border-radius: 2px; outline: 0; padding: 10px; background: #020205; color: #fff; font: 10px 'DM Mono', monospace; box-shadow: 0 0 8px rgba(176, 38, 255, .14); cursor: text; pointer-events: auto !important; user-select: text; }
+#server-player-name:focus, #room-name-input:focus { border-color: #d36bff; box-shadow: 0 0 14px rgba(176, 38, 255, .55); }
 .server-panel > #server-player-name { margin-bottom: 18px; }
 .server-panel .room-tools { margin-top: 0; }
 .server-list-heading { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 10px; color: #d36bff; font: 9px 'DM Mono', monospace; text-transform: uppercase; }
