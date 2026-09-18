@@ -657,6 +657,9 @@ document.getElementById('start-button').addEventListener('click', () => {
   document.getElementById('server-status').textContent = 'CONNECTING TO WORLD SERVER';
   openMultiplayerConnection();
 });
+['server-player-name', 'room-name-input'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', event => event.stopPropagation());
+});
 document.getElementById('back-button').addEventListener('click', () => {
   serverBrowser.hidden = true;
   menuView.hidden = false;
@@ -683,7 +686,10 @@ document.getElementById('leave-button').addEventListener('click', () => {
   menuView.hidden = true;
   serverBrowser.hidden = false;
   roomJoined = false;
-  if (multiplayerSocket?.readyState === WebSocket.OPEN) multiplayerSocket.send(JSON.stringify({ type: 'rooms' }));
+  if (multiplayerSocket?.readyState === WebSocket.OPEN) {
+    multiplayerSocket.send(JSON.stringify({ type: 'leave-room' }));
+    multiplayerSocket.send(JSON.stringify({ type: 'rooms' }));
+  }
   if (document.pointerLockElement) document.exitPointerLock();
 });
 renderer.domElement.addEventListener('click', () => { if (started) renderer.domElement.requestPointerLock(); });

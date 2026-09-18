@@ -48,6 +48,11 @@ server.on('connection', socket => {
       sendRooms(socket);
       return;
     }
+    if (message.type === 'leave-room') {
+      leaveRoom(player);
+      sendRooms(socket);
+      return;
+    }
     if (message.type === 'room-create') {
       const name = String(message.roomName || '').trim().slice(0, 24);
       if (!name) return send(socket, { type: 'room-error', message: 'ENTER A ROOM NAME' });
@@ -80,7 +85,7 @@ server.on('connection', socket => {
     if (message.type === 'shoot' && player.roomId && !player.dead) handleShot(player, message);
     if (message.type === 'chat' && player.roomId) {
       const text = String(message.text || '').trim().slice(0, 120);
-      if (text) broadcastRoom(rooms.get(player.roomId), { type: 'chat', name: player.name, text });
+      if (text) broadcastRoom(rooms.get(player.roomId), { type: 'chat', name: player.name, text }, player.id);
     }
   });
 
