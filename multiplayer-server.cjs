@@ -70,6 +70,7 @@ server.on('connection', socket => {
       if (!name) return send(socket, { type: 'room-error', message: 'ENTER A SERVER NAME' });
       if ([...rooms.values()].some(candidate => candidate.id !== room.id && candidate.name.toLowerCase() === name.toLowerCase())) return send(socket, { type: 'room-error', message: 'SERVER NAME ALREADY EXISTS' });
       room.name = name;
+      broadcastRoom(room, { type: 'room-renamed', name: room.name });
       broadcastRooms();
       return;
     }

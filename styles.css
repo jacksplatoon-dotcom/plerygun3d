@@ -48,8 +48,12 @@ canvas { position: absolute; inset: 0; z-index: 0; display: block; width: 100%; 
 .server-panel label { display: block; margin-bottom: 8px; color: #d36bff; font: 9px 'DM Mono', monospace; text-transform: uppercase; }
 #server-player-name, #room-name-input { width: 100%; border: 1px solid rgba(176, 38, 255, .8); border-radius: 2px; outline: 0; padding: 10px; background: #020205; color: #fff; font: 10px 'DM Mono', monospace; box-shadow: 0 0 8px rgba(176, 38, 255, .14); cursor: text; pointer-events: auto !important; user-select: text; }
 #server-player-name:focus, #room-name-input:focus { border-color: #d36bff; box-shadow: 0 0 14px rgba(176, 38, 255, .55); }
-.server-panel > #server-player-name { margin-bottom: 18px; }
+.name-tools { display: flex; gap: 8px; margin-bottom: 18px; }
+.name-tools input { flex: 1; min-width: 0; }
+.name-tools button, .room-tools button { flex: 0 0 auto; padding: 9px 10px; font-size: 9px; }
 .server-panel .room-tools { margin-top: 0; }
+.server-stats { display: flex; gap: 24px; margin-top: 16px; color: #d36bff; font: 9px 'DM Mono', monospace; text-transform: uppercase; }
+.server-stats strong { margin-left: 5px; color: #fff; font-size: 14px; }
 .server-list-heading { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 10px; color: #d36bff; font: 9px 'DM Mono', monospace; text-transform: uppercase; }
 .map-card { display: grid; grid-template-columns: minmax(220px, 42%) 1fr; overflow: hidden; border: 1px solid rgba(200, 237, 113, .45); border-radius: 4px; background: rgba(9, 22, 17, .88); box-shadow: 0 18px 60px rgba(0, 0, 0, .32); }
 .map-preview { position: relative; min-height: 238px; overflow: hidden; background: #51904a; }
@@ -117,6 +121,6 @@ body.playing #crosshair { opacity: .85; }
 #loading span { display: inline-block; width: 25px; overflow: hidden; vertical-align: bottom; animation: dots 1.2s steps(4, end) infinite; }
 @keyframes dots { 0% { width: 0; } 100% { width: 25px; } }
 #loading.done { opacity: 0; pointer-events: none; }
-@media (max-width: 600px) { #world-label { top: 22px; left: 20px; } #hud { top: 20px; right: 20px; } .hud-chip { display: none; } #intro-panel { left: 0; top: 0; } #controls-hint { left: 20px; bottom: 20px; } #pause-note { display: none; } #controls-hint span:nth-of-type(2), #controls-hint kbd:nth-of-type(2), #controls-hint { font-size: 0; } #controls-hint kbd { font-size: 10px; } #server-browser { width: calc(100vw - 32px); } .room-tools { align-items: stretch; flex-direction: column; } .room-tools button { width: 100%; } .room-row { align-items: stretch; flex-direction: column; } }
+@media (max-width: 600px) { #world-label { top: 22px; left: 20px; } #hud { top: 20px; right: 20px; } .hud-chip { display: none; } #intro-panel { left: 0; top: 0; } #controls-hint { left: 20px; bottom: 20px; } #pause-note { display: none; } #controls-hint span:nth-of-type(2), #controls-hint kbd:nth-of-type(2), #controls-hint { font-size: 0; } #controls-hint kbd { font-size: 10px; } #server-browser { width: calc(100vw - 32px); } .name-tools, .room-tools { align-items: stretch; flex-direction: column; } .name-tools button, .room-tools button { width: 100%; } .room-row { align-items: stretch; flex-direction: column; } }
 
 #game-shell, #game-shell * { color: #fff; font-family: 'Press Start 2P', monospace; text-shadow: 2px 2px 0 #000; }

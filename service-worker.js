@@ -1,4 +1,4 @@
-const CACHE_NAME = 'plery-online-v4';
+const CACHE_NAME = 'plery-online-v5';
 const APP_FILES = [
   './',
   './index.html',

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
   <main id="game-shell">
@@ -26,22 +26,6 @@
       <div id="menu-view">
         <p class="eyebrow">Plery Online</p>
         <button id="start-button" class="neon-button" type="button">Join server</button>
-        <button id="profile-button" class="neon-button" type="button">Profile</button>
-      </div>
-      <div id="profile-view" hidden>
-        <div class="profile-panel">
-          <p class="eyebrow">Player profile</p>
-          <h2 id="profile-name-display" contenteditable="true" spellcheck="false" role="textbox" aria-label="Editable player name">PLAYER</h2>
-          <button id="change-name-button" class="neon-button" type="button">Change name</button>
-          <label for="profile-name-input">Player name</label>
-          <input id="profile-name-input" type="text" maxlength="16" autocomplete="off">
-          <div class="profile-stats">
-            <div><span>KILLS</span><strong id="profile-kills">0</strong></div>
-            <div><span>LEVEL</span><strong id="profile-level">1</strong></div>
-          </div>
-          <button id="save-profile-button" class="neon-button" type="button">Save profile</button>
-          <button id="profile-back-button" class="text-button" type="button">Back</button>
-        </div>
       </div>
       <div id="server-browser" hidden>
         <div class="browser-heading">
@@ -53,12 +37,17 @@
         </div>
         <div class="server-panel">
           <label for="server-player-name">Player name</label>
-          <input id="server-player-name" type="text" maxlength="16" autocomplete="off" placeholder="Player name">
+          <div class="name-tools">
+            <input id="server-player-name" type="text" maxlength="16" autocomplete="off" placeholder="Player name">
+            <button id="change-player-name-button" class="neon-button" type="button">Change</button>
+          </div>
           <label for="room-name-input">Server name</label>
           <div class="room-tools">
             <input id="room-name-input" type="text" maxlength="24" autocomplete="off" placeholder="Server name">
+            <button id="change-server-name-button" class="neon-button" type="button">Change</button>
             <button id="host-button" class="neon-button" type="button">Create server</button>
           </div>
+          <div class="server-stats"><span>KILLS <strong id="server-kills">0</strong></span><span>LEVEL <strong id="server-level">1</strong></span></div>
         </div>
         <div class="server-list-heading">
           <span>Open servers</span>
@@ -77,9 +66,9 @@
     }
   </script>
   <script src="server-config.js"></script>
-  <script type="module" src="game.js?v=82"></script>
+  <script type="module" src="game.js?v=83"></script>
   <script>
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=4');
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js?v=5');
   </script>
 </body>
 </html>

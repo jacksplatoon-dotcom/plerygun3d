@@ -233,6 +233,7 @@ function connectMultiplayer() {
     if (message.type === 'room-error') {
       document.getElementById('server-status').textContent = message.message;
     }
+    if (message.type === 'room-renamed') document.getElementById('room-name-input').value = message.name;
     if (message.type === 'join') { addRemotePlayer(message.id); addChatMessage('SYSTEM', `${message.name || 'PLAYER'} joined the game`); }
     if (message.type === 'leave') {
       const remote = remotePlayers.get(message.id);
@@ -258,7 +259,7 @@ function connectMultiplayer() {
       if (message.killer === localPlayerId) {
         profileStats.kills += 1;
         saveProfileStats();
-        updateProfileView();
+        updateServerStats();
       }
       if (!message.victim || message.victim === localPlayerId) {
         dead = true;
@@ -606,7 +607,6 @@ function joinRoom(roomId) {
 }
 const menuView = document.getElementById('menu-view');
 const serverBrowser = document.getElementById('server-browser');
-const profileView = document.getElementById('profile-view');
 const profileStats = {
   name: localStorage.getItem('pleryProfileName') || 'Player',
   kills: Number(localStorage.getItem('pleryKills') || 0)
@@ -615,45 +615,32 @@ function saveProfileStats() {
   localStorage.setItem('pleryProfileName', profileStats.name);
   localStorage.setItem('pleryKills', String(profileStats.kills));
 }
-function updateProfileView() {
-  document.getElementById('profile-name-input').value = profileStats.name;
-  document.getElementById('profile-name-display').textContent = profileStats.name.toUpperCase();
-  document.getElementById('profile-kills').textContent = profileStats.kills;
-  document.getElementById('profile-level').textContent = Math.floor(profileStats.kills / 5) + 1;
+function updateServerStats() {
+  document.getElementById('server-kills').textContent = profileStats.kills;
+  document.getElementById('server-level').textContent = Math.floor(profileStats.kills / 5) + 1;
   updateNameTag(worldNameTag, profileStats.name);
 }
-document.getElementById('profile-name-display').addEventListener('input', event => {
-  document.getElementById('profile-name-input').value = event.currentTarget.textContent.trim().slice(0, 16);
-});
-document.getElementById('profile-name-display').addEventListener('keydown', event => {
-  if (event.key === 'Enter') { event.preventDefault(); document.getElementById('save-profile-button').focus(); }
-});
-document.getElementById('change-name-button').addEventListener('click', () => {
-  const input = document.getElementById('profile-name-input');
-  input.focus();
-  input.select();
-});
-document.getElementById('profile-button').addEventListener('click', () => {
-  menuView.hidden = true;
-  profileView.hidden = false;
-  updateProfileView();
-});
-document.getElementById('save-profile-button').addEventListener('click', () => {
-  const name = document.getElementById('profile-name-input').value.trim();
+document.getElementById('change-player-name-button').addEventListener('click', () => {
+  const name = document.getElementById('server-player-name').value.trim();
   if (name) profileStats.name = name.slice(0, 16);
   saveProfileStats();
-  updateProfileView();
+  document.getElementById('server-player-name').value = profileStats.name;
+  updateServerStats();
   sendProfileName();
 });
-document.getElementById('profile-back-button').addEventListener('click', () => {
-  profileView.hidden = true;
-  menuView.hidden = false;
+document.getElementById('change-server-name-button').addEventListener('click', () => {
+  const input = document.getElementById('room-name-input');
+  input.focus();
+  if (roomJoined && multiplayerSocket?.readyState === WebSocket.OPEN) {
+    multiplayerSocket.send(JSON.stringify({ type: 'room-rename', roomName: input.value }));
+  }
 });
 document.getElementById('start-button').addEventListener('click', () => {
   menuView.hidden = true;
   serverBrowser.hidden = false;
   document.getElementById('server-player-name').value = profileStats.name;
   document.getElementById('room-name-input').value = '';
+  updateServerStats();
   document.getElementById('server-status').textContent = 'CONNECTING TO WORLD SERVER';
   openMultiplayerConnection();
 });
